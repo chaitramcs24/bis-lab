@@ -1,0 +1,181 @@
+import random
+
+NUM_INTERSECTIONS = 4
+NUM_PARTICLES = 30
+MAX_ITERATIONS = 100
+
+W = 0.7
+C1 = 1.5
+C2 = 1.5
+
+MIN_GREEN = 20
+MAX_GREEN = 60
+
+traffic = [120, 200, 150, 100]
+
+PASSING_RATE = 2
+
+
+def fitness(position):
+    total_cost = 0
+
+    for i in range(NUM_INTERSECTIONS):
+
+        green_time = position[i]
+        vehicles = traffic[i]
+
+        vehicles_passed = green_time * PASSING_RATE
+
+        vehicles_waiting = max(
+            0,
+            vehicles - vehicles_passed
+        )
+
+        waiting_time = vehicles_waiting * (
+            100 - green_time
+        )
+
+        excess_green = max(
+            0,
+            green_time - 50
+        )
+
+        green_penalty = excess_green ** 2
+
+        total_cost += (
+            waiting_time +
+            green_penalty
+        )
+
+    return total_cost
+
+
+def create_particle():
+
+    position = []
+    velocity = []
+
+    for _ in range(NUM_INTERSECTIONS):
+
+        position.append(
+            random.uniform(
+                MIN_GREEN,
+                MAX_GREEN
+            )
+        )
+
+        velocity.append(
+            random.uniform(-5, 5)
+        )
+
+    return position, velocity
+
+
+particles = []
+
+for _ in range(NUM_PARTICLES):
+
+    position, velocity = create_particle()
+
+    current_fitness = fitness(position)
+
+    particle = {
+        "position": position,
+        "velocity": velocity,
+        "personal_best": position.copy(),
+        "personal_best_fitness": current_fitness
+    }
+
+    particles.append(particle)
+
+
+global_best = particles[0]["personal_best"].copy()
+global_best_fitness = particles[0]["personal_best_fitness"]
+
+
+for particle in particles:
+
+    if particle["personal_best_fitness"] < global_best_fitness:
+
+        global_best_fitness = (
+            particle["personal_best_fitness"]
+        )
+
+        global_best = (
+            particle["personal_best"].copy()
+        )
+
+
+for iteration in range(MAX_ITERATIONS):
+
+    for particle in particles:
+
+        position = particle["position"]
+        velocity = particle["velocity"]
+        personal_best = particle["personal_best"]
+
+        for i in range(NUM_INTERSECTIONS):
+
+            R1 = random.random()
+            R2 = random.random()
+
+            velocity[i] = (
+                W * velocity[i]
+                + C1 * R1 *
+                (personal_best[i] - position[i])
+                + C2 * R2 *
+                (global_best[i] - position[i])
+            )
+
+        for i in range(NUM_INTERSECTIONS):
+
+            position[i] += velocity[i]
+
+            position[i] = max(
+                MIN_GREEN,
+                min(MAX_GREEN, position[i])
+            )
+
+        current_fitness = fitness(position)
+
+        if current_fitness < particle["personal_best_fitness"]:
+
+            particle["personal_best"] = (
+                position.copy()
+            )
+
+            particle["personal_best_fitness"] = (
+                current_fitness
+            )
+
+    for particle in particles:
+
+        if (
+            particle["personal_best_fitness"]
+            < global_best_fitness
+        ):
+
+            global_best_fitness = (
+                particle["personal_best_fitness"]
+            )
+
+            global_best = (
+                particle["personal_best"].copy()
+            )
+
+
+print("Optimal Traffic Signal Timings")
+print("--------------------------------")
+
+for i, green_time in enumerate(global_best):
+
+    print(
+        f"Intersection {i + 1}: "
+        f"{green_time:.2f} seconds"
+    )
+
+print("--------------------------------")
+print(
+    f"Minimum Congestion: "
+    f"{global_best_fitness:.2f}"
+)
