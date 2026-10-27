@@ -1,0 +1,117 @@
+import random
+
+
+network = {
+    'A': {'B': 2, 'C': 4},
+    'B': {'A': 2, 'C': 1, 'D': 7},
+    'C': {'A': 4, 'B': 1, 'D': 3, 'E': 5},
+    'D': {'B': 7, 'C': 3, 'E': 2},
+    'E': {'C': 5, 'D': 2}
+}
+
+
+NUM_ANTS = 10
+ITERATIONS = 100
+ALPHA = 1.0     
+BETA = 2.0       
+EVAPORATION = 0.5
+Q = 100           
+
+SOURCE = 'A'
+DESTINATION = 'E'
+
+
+def initialize_pheromones(network):
+    pheromone = {}
+    for node in network:
+        for neighbor in network[node]:
+            pheromone[(node, neighbor)] = 1.0
+    return pheromone
+
+
+def choose_next_node(current, visited, pheromone):
+    candidates = [
+        neighbor for neighbor in network[current]
+        if neighbor not in visited
+    ]
+
+    if not candidates:
+        return None
+
+    weights = []
+    for neighbor in candidates:
+        cost = network[current][neighbor]
+        tau = pheromone[(current, neighbor)]
+        heuristic = 1.0 / cost
+
+        weight = (tau ** ALPHA) * (heuristic ** BETA)
+        weights.append(weight)
+
+    return random.choices(candidates, weights=weights, k=1)[0]
+
+
+def calculate_cost(path):
+    return sum(
+        network[path[i]][path[i + 1]]
+        for i in range(len(path) - 1)
+    )
+
+
+def ant_colony_routing():
+    pheromone = initialize_pheromones(network)
+    best_path = None
+    best_cost = float('inf')
+
+    for iteration in range(ITERATIONS):
+        ant_solutions = []
+
+        for ant in range(NUM_ANTS):
+            current = SOURCE
+            path = [current]
+            visited = {current}
+
+            while current != DESTINATION:
+                next_node = choose_next_node(
+                    current, visited, pheromone
+                )
+
+                if next_node is None:
+                    break
+
+                path.append(next_node)
+                visited.add(next_node)
+                current = next_node
+
+            
+            if path[-1] == DESTINATION:
+                cost = calculate_cost(path)
+                ant_solutions.append((path, cost))
+
+                if cost < best_cost:
+                    best_path = path[:]
+                    best_cost = cost
+
+        
+        for edge in pheromone:
+            pheromone[edge] *= (1 - EVAPORATION)
+
+   
+        for path, cost in ant_solutions:
+            deposit = Q / cost
+
+            for i in range(len(path) - 1):
+                u, v = path[i], path[i + 1]
+
+                pheromone[(u, v)] += deposit
+                pheromone[(v, u)] += deposit
+
+    return best_path, best_cost
+
+
+path, cost = ant_colony_routing()
+
+if path:
+    print("Best routing path:", " -> ".join(path))
+    print("Total routing cost:", cost)
+else:
+    print("No route found.")
