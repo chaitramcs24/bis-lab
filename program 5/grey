@@ -1,0 +1,141 @@
+
+import random
+import math
+
+# Robot path planning using GWO
+
+# Start and goal positions
+start = (0, 0)
+goal = (9, 9)
+
+# Obstacles
+obstacles = [
+    (3, 3), (3, 4), (3, 5),
+    (5, 5), (6, 5), (7, 5)
+]
+
+# GWO parameters
+wolves = 20
+iterations = 100
+dimensions = 4
+
+# Generate random wolf positions
+population = [
+    [random.uniform(0, 9) for _ in range(dimensions)]
+    for _ in range(wolves)
+]
+
+def fitness(position):
+
+    points = [
+        start,
+        (round(position[0]), round(position[1])),
+        (round(position[2]), round(position[3])),
+        goal
+    ]
+
+    distance = 0
+    penalty = 0
+
+    for i in range(len(points) - 1):
+
+        x1, y1 = points[i]
+        x2, y2 = points[i + 1]
+
+        steps = max(abs(x2-x1), abs(y2-y1), 1)
+
+        for j in range(steps + 1):
+            x = round(x1 + (x2-x1)*j/steps)
+            y = round(y1 + (y2-y1)*j/steps)
+
+            if not (0 <= x <= 9 and 0 <= y <= 9):
+                penalty += 1000
+
+            if (x, y) in obstacles:
+                penalty += 1000
+
+        distance += math.sqrt(
+            (x2-x1)**2 + (y2-y1)**2
+        )
+
+    return distance + penalty
+
+
+# Grey Wolf Optimization
+for iteration in range(iterations):
+
+    population.sort(key=fitness)
+
+    alpha = population[0]
+    beta = population[1]
+    delta = population[2]
+
+    a = 2 - 2 * iteration / iterations
+
+    new_population = []
+
+    for wolf in population:
+
+        new_position = []
+
+        for d in range(dimensions):
+
+            r1 = random.random()
+            r2 = random.random()
+            A1 = 2*a*r1 - a
+            C1 = 2*r2
+            D1 = abs(C1*alpha[d] - wolf[d])
+            X1 = alpha[d] - A1*D1
+
+            r1 = random.random()
+            r2 = random.random()
+            A2 = 2*a*r1 - a
+            C2 = 2*r2
+            D2 = abs(C2*beta[d] - wolf[d])
+            X2 = beta[d] - A2*D2
+
+            r1 = random.random()
+            r2 = random.random()
+            A3 = 2*a*r1 - a
+            C3 = 2*r2
+            D3 = abs(C3*delta[d] - wolf[d])
+            X3 = delta[d] - A3*D3
+
+            new_value = (X1 + X2 + X3) / 3
+
+            new_position.append(
+                max(0, min(9, new_value))
+            )
+
+        new_population.append(new_position)
+
+    population = new_population
+
+# Find best solution
+best = min(population, key=fitness)
+
+path = [
+    start,
+    (round(best[0]), round(best[1])),
+    (round(best[2]), round(best[3])),
+    goal
+]
+
+print("\nROBOT PATH PLANNING USING GWO")
+print("--------------------------------")
+
+print("Starting Position:", start)
+print("Destination:", goal)
+
+print("\nOptimal Robot Path:")
+
+for point in path:
+    print(point)
+
+print("\nTotal Path Distance:",
+      round(fitness(best), 2))
+
+if fitness(best) < 1000:
+    print("Path Status: Valid")
+else:
+    print("Path Status: Obstacle Avoidance Failed")
