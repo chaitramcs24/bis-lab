@@ -1,0 +1,174 @@
+
+import numpy as np
+
+# --------------------------------
+# Test Case Optimization using CSA
+# --------------------------------
+
+# Test cases: TC1, TC2, TC3, TC4, TC5, TC6
+# Columns represent requirements/features covered
+
+coverage = np.array([
+    [1, 1, 0, 0, 0, 0],
+    [0, 1, 1, 0, 0, 0],
+    [0, 0, 1, 1, 0, 0],
+    [1, 0, 0, 1, 1, 0],
+    [0, 0, 0, 0, 1, 1],
+    [1, 0, 0, 0, 0, 1]
+])
+
+# Execution time of each test case
+execution_time = np.array([5, 4, 6, 3, 5, 2])
+
+# Algorithm parameters
+n_nests = 20
+max_iter = 100
+pa = 0.25
+
+num_tests = len(execution_time)
+num_features = coverage.shape[1]
+
+# Fitness function
+def fitness(solution):
+
+    selected = np.where(solution == 1)[0]
+
+    if len(selected) == 0:
+        return 0
+
+    # Calculate feature coverage
+    selected_coverage = coverage[selected]
+
+    covered = np.any(selected_coverage, axis=0)
+    coverage_score = np.sum(covered) / num_features
+
+    # Calculate execution cost
+    total_time = np.sum(execution_time[selected])
+
+    # Normalize execution time
+    max_time = np.sum(execution_time)
+
+    time_score = total_time / max_time
+
+    # Fitness: maximize coverage and minimize time
+    score = coverage_score - 0.3 * time_score
+
+    return score
+
+
+# Generate initial nests
+nests = np.random.randint(
+    0, 2, (n_nests, num_tests)
+)
+
+# Ensure non-empty nests
+for i in range(n_nests):
+    if np.sum(nests[i]) == 0:
+        nests[i, np.random.randint(num_tests)] = 1
+
+# Find initial best solution
+best_index = np.argmax(
+    [fitness(nest) for nest in nests]
+)
+
+best_nest = nests[best_index].copy()
+best_fitness = fitness(best_nest)
+
+# Cuckoo Search main loop
+for iteration in range(max_iter):
+
+    for i in range(n_nests):
+
+        # Lévy flight-inspired random movement
+        step = np.random.normal(
+            0, 1, num_tests
+        )
+
+        new_solution = nests[i] + step
+
+        # Convert continuous values to binary
+        new_solution = (
+            new_solution > np.random.rand(num_tests)
+        ).astype(int)
+
+        # Ensure non-empty solution
+        if np.sum(new_solution) == 0:
+            new_solution[np.random.randint(num_tests)] = 1
+
+        new_fitness = fitness(new_solution)
+        old_fitness = fitness(nests[i])
+
+        # Replace nest if new solution is better
+        if new_fitness > old_fitness:
+            nests[i] = new_solution.copy()
+
+        # Update global best
+        if new_fitness > best_fitness:
+            best_nest = new_solution.copy()
+            best_fitness = new_fitness
+
+    # Abandon worst nests
+    fitness_values = np.array(
+        [fitness(nest) for nest in nests]
+    )
+
+    worst_count = int(pa * n_nests)
+
+    worst_indices = np.argsort(
+        fitness_values
+    )[:worst_count]
+
+    for index in worst_indices:
+        nests[index] = np.random.randint(
+            0, 2, num_tests
+        )
+
+        if np.sum(nests[index]) == 0:
+            nests[index, np.random.randint(num_tests)] = 1
+
+    # Update best solution
+    fitness_values = np.array(
+        [fitness(nest) for nest in nests]
+    )
+
+    current_best = np.argmax(fitness_values)
+
+    if fitness_values[current_best] > best_fitness:
+        best_nest = nests[current_best].copy()
+        best_fitness = fitness(best_nest)
+
+    print(
+        f"Iteration {iteration + 1}: "
+        f"Best Fitness = {best_fitness:.4f}"
+    )
+
+
+# --------------------------------
+# Display optimized test cases
+# --------------------------------
+
+print("\nOptimized Test Case Selection")
+
+selected_tests = np.where(best_nest == 1)[0]
+
+for test in selected_tests:
+    print(
+        f"TC{test + 1} - "
+        f"Execution Time: {execution_time[test]}"
+    )
+
+total_time = np.sum(execution_time[selected_tests])
+
+total_coverage = np.any(
+    coverage[selected_tests], axis=0
+)
+
+coverage_percentage = (
+    np.sum(total_coverage) / num_features
+) * 100
+
+print("\nFinal Results")
+print("Selected Test Cases:", len(selected_tests))
+print("Total Execution Time:", total_time)
+print("Code Coverage:", coverage_percentage, "%")
+print("Best Fitness:", best_fitness)
